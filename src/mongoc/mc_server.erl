@@ -112,8 +112,13 @@ handle_call(get_pool, _From, State = #state{type = unknown}) ->
 handle_call(get_pool, _From, State = #state{ismaster = undefined}) ->
   {reply, {error, server_unknown}, State};
 handle_call(get_pool, _From, State = #state{pool = undefined}) ->
-  Pid = init_pool(State),
-  {reply, Pid, State#state{pool = Pid}};
+  case whereis(mc_pool_sup) of %% 特殊时刻mc_pool_sup可能不存在（崩溃掉了），这是要加一个判断不要down进程
+    undefined ->
+      {reply, {error, server_unknown}, State};
+    _->
+      Pid = init_pool(State),
+      {reply, Pid, State#state{pool = Pid}}
+  end;
 handle_call(get_pool, _From, State = #state{pool = Pid}) ->
   {reply, Pid, State};
 handle_call(_Request, _From, State) ->

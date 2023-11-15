@@ -26,6 +26,7 @@ select_server(Topology, secondaryPreferred, Tags) ->
     undefined -> select_server(Topology, primary, Tags);
     Primary -> Primary
   end;
+
 select_server(Topology, nearest, Tags) ->
   get_nearest(select_server(Topology, primary, Tags), select_server(Topology, secondary, Tags));
 select_server(Topology, Mode, Tags) ->
@@ -62,6 +63,8 @@ select_candidate(primary, _, [Primary]) ->
 select_candidate(primary, sharded, List) ->
   Len = length(List),
   pick_random(List, Len);
+select_candidate(primary, _, _List) -> %% 副本集模式下，集群ets信息会刷新不及时，导致ets包含2个primary信息，这会要返回undefined等待ets信息刷新
+  undefined;
 select_candidate(secondary, _, List) ->
   Len = length(List),
   pick_random(List, Len).
