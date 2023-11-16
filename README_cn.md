@@ -9,7 +9,7 @@ If you want to connect to a replica set _ReplicaSetName_ use this format
 To connect to mongo by srv record use this format
 
 ```erlang
-Seed = {srv, ["hostname1:port1", "hostname2:port2"]}
+Seed = {srv, {"host"}}
 ```
 
 ## 支持mongo op_msg 协议
