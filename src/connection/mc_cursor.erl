@@ -193,18 +193,33 @@ next_i(#state{batch = [Doc | Rest]} = State, _Timeout) ->
 next_i(#state{batch = [], cursor = 0} = State, _Timeout) ->
     {{}, State};
 next_i(#state{batch = []} = State, Timeout) ->
-    Reply = gen_server:call(
-        State#state.connection,
-        #getmore{
-            collection = State#state.collection,
-            batchsize = State#state.batchsize,
-            cursorid = State#state.cursor,
-            database = State#state.database
-        },
-        Timeout),
-    Cursor = Reply#reply.cursorid,
-    Batch = Reply#reply.documents,
-    next_i(State#state{cursor = Cursor, batch = Batch}, Timeout).
+    case mc_utils:use_legacy_protocol(State#state.connection) of
+        true ->
+            Reply = gen_server:call(
+                State#state.connection,
+                #getmore{
+                    collection = State#state.collection,
+                    batchsize = State#state.batchsize,
+                    cursorid = State#state.cursor,
+                    database = State#state.database
+                },
+                Timeout),
+            Cursor = Reply#reply.cursorid,
+            Batch = Reply#reply.documents,
+            next_i(State#state{cursor = Cursor, batch = Batch}, Timeout);
+        false ->
+            Command =
+                #op_msg_command{command_doc = [
+                    {<<"getMore">>, State#state.cursor},
+                    {<<"collection">>, State#state.collection},
+                    {<<"batchSize">>, State#state.batchsize}
+                ], database = State#state.database},
+            Reply = mc_connection_man:request_worker(State#state.connection, Command),
+            Cursor = maps:get(<<"cursor">>, Reply),
+            CursorId = maps:get(<<"id">>, Cursor),
+            Batch = maps:get(<<"nextBatch">>, Cursor),
+            next_i(State#state{cursor = CursorId, batch = Batch}, Timeout)
+    end.
 
 %% @private
 rest_i(State, infinity, Timeout) ->
